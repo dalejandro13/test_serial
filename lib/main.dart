@@ -18,7 +18,6 @@ class _MyAppState extends State<MyApp> {
   UsbPort _port;
   String _status = "Idle";
   List<UsbDevice> _puertos = [];
-  List<Widget> _ports = [];
   List<Widget> _serialData = [];
   StreamSubscription<String> _subscription;
   Transaction<String> _transaction;
@@ -34,6 +33,10 @@ class _MyAppState extends State<MyApp> {
     }
     else if(line.contains("ROUTE")){
       await _port.write(Uint8List.fromList(route.codeUnits));
+    }
+    else if(line.contains("OK")){
+      //print()
+
     }
 
     if (_serialData.length > 20) {
@@ -113,6 +116,9 @@ class _MyAppState extends State<MyApp> {
       return false;
     }
 
+    //bool res = true;
+    //Navigator.pop(context, res);
+
     _deviceId = device.deviceId;
     await _port.setDTR(true);
     await _port.setRTS(true);
@@ -131,11 +137,10 @@ class _MyAppState extends State<MyApp> {
     return true;
   }
 
-  void _getPorts() async { //obtiene todos los dispositivos conectados
-    _ports = [];
+  Future<void> _getPorts() async { //obtiene todos los dispositivos conectados
     _puertos = [];
     List<UsbDevice> devices = await UsbSerial.listDevices();
-    devices.forEach((device) {
+    devices.forEach((device) async {
       String name = device.productName;
       if(name.contains("Mouse") == true || name.contains("mouse") == true || name.contains("MOUSE") == true){
         setState((){
@@ -146,10 +151,10 @@ class _MyAppState extends State<MyApp> {
         _puertos.add(device);
         
         if(_deviceId == device.deviceId){
-          _connectTo(null); //llama al metodo para poderse conectar
+          await _connectTo(null); 
         }
         else{
-          _connectTo(device);
+          await _connectTo(device); //llama al metodo para poderse conectar
         }
       }
     });
@@ -167,8 +172,13 @@ class _MyAppState extends State<MyApp> {
     startTcpServer();
     getIpInFile();
     
-    UsbSerial.usbEventStream.listen((UsbEvent event) { //detecta cuando se ha conectado un dispositivo al USB
-      _getPorts();
+    UsbSerial.usbEventStream.listen((UsbEvent event) async { //detecta cuando se ha conectado o desconectado un dispositivo USB
+      await _getPorts();
+      if(_puertos.length == 0){
+        setState(() {
+          _status = "Disconnected";
+        });
+      }
     });
 
     _getPorts();
@@ -192,10 +202,9 @@ class _MyAppState extends State<MyApp> {
           child: Column(children: <Widget>[
         Text(
             _puertos.length > 0
-                ? "Dispositivos seriales detectados"
-                : "No hay dispositivos seriales",
+              ? "Dispositivos seriales detectados"
+              : "No hay dispositivos seriales",
             style: Theme.of(context).textTheme.headline6),
-        //..._ports,
         Text('Status: $_status\n'),
         SizedBox(height: 100.0),
         Text("Result Data", style: Theme.of(context).textTheme.headline6),
